@@ -15,7 +15,7 @@ The notebook, the model and the reference files are not modified by this project
 ## Public address (GitHub Pages)
 
 <!-- ===== GITHUB PAGES URL ===== -->
-**Public URL:** <https://AdamB4B.github.io/mlr-ex08/>
+**Public URL:** <https://adamb4b.github.io/mlr-ex08/>
 <!-- ============================ -->
 
 Published from the public repository [AdamB4B/mlr-ex08](https://github.com/AdamB4B/mlr-ex08)
