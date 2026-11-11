@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14532d">
+<meta name="description" content="Leaf species classifier running entirely in your browser with ONNX Runtime Web. Apple, cherry, chestnut and maple.">
+<title>Leaf Classifier — runs on your phone</title>
+<!-- Inline icon: no favicon.ico request, nothing to upload. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%83%3C/text%3E%3C/svg%3E">
+
+<!-- Only two external scripts, both pinned CDN libraries.
+     Everything else (including the model) is loaded from this same site.
+     No image, frame or photo is ever sent anywhere. -->
+<script defer src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+<style>
+  :root {
+    --green-900: #14532d;
+    --green-700: #15803d;
+    --green-500: #22c55e;
+    --green-100: #dcfce7;
+    --ink: #1f2937;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --card-bg: #ffffff;
+    --page-bg: #f1f5f4;
+    --danger-bg: #fef2f2;
+    --danger-ink: #b91c1c;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  .wrap {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  header { text-align: center; padding: 14px 0 18px; }
+  header h1 { margin: 0 0 6px; font-size: 1.75rem; color: var(--green-900); }
+  header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--green-900); }
+
+  /* ---- status / errors ---- */
+  #status {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.9rem; color: var(--muted);
+    margin-bottom: 14px; min-height: 22px;
+  }
+  .spinner {
+    width: 16px; height: 16px; flex: 0 0 16px;
+    border: 2px solid var(--green-100);
+    border-top-color: var(--green-700);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  .spinner[hidden] { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #progress { flex: 1; height: 6px; accent-color: var(--green-700); max-width: 160px; }
+  #progress[hidden] { display: none; }
+  #error {
+    background: var(--danger-bg); color: var(--danger-ink);
+    border: 1px solid #fecaca; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 16px; font-size: .92rem;
+    white-space: pre-line;
+  }
+  #error[hidden] { display: none; }
+
+  /* ---- camera / photo stage ---- */
+  .stage {
+    position: relative;
+    background: #0f172a;
+    border-radius: 12px;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #video, #photo {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  #video[hidden], #photo[hidden] { display: none; }
+  #empty {
+    color: #94a3b8; text-align: center; padding: 24px;
+    font-size: .95rem;
+  }
+  #empty[hidden] { display: none; }
+  #cropGuide {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    height: 70%; aspect-ratio: 1 / 1;
+    border: 2px dashed rgba(255, 255, 255, .75);
+    border-radius: 6px;
+    pointer-events: none;
+  }
+  #cropGuide[hidden] { display: none; }
+  .controls { display: grid; gap: 10px; margin-top: 14px; grid-template-columns: 1fr; }
+  .btn {
+    appearance: none; border: 0; cursor: pointer;
+    min-height: 48px; padding: 12px 14px;
+    border-radius: 12px;
+    font: inherit; font-weight: 600; font-size: 1rem;
+    text-align: center; text-decoration: none;
+    color: #fff; background: var(--green-700);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .btn:active { filter: brightness(.92); }
+  .btn:focus-visible { outline: 3px solid var(--green-500); outline-offset: 2px; }
+  .btn.secondary { background: #fff; color: var(--green-900); border: 1.5px solid var(--green-700); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  #fileInput { display: none; }
+  .hint { margin: 12px 0 0; font-size: .8rem; color: var(--muted); }
+
+  /* ---- results ---- */
+  #topResult {
+    margin: 0 0 14px; font-size: 1.35rem; font-weight: 700;
+    color: var(--green-900); min-height: 1.6em;
+  }
+  #topResult .dim { color: var(--muted); font-weight: 500; font-size: 1rem; }
+  #bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: .95rem; margin-bottom: 4px; }
+  .bar-label .value { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .track { height: 12px; background: var(--page-bg); border-radius: 999px; overflow: hidden; }
+  .fill { height: 100%; width: 0; background: var(--green-500); border-radius: 999px; transition: width .18s ease-out; }
+  li.best .bar-label { font-weight: 700; color: var(--green-900); }
+  li.best .bar-label .value { color: var(--green-900); }
+  li.best .fill { background: var(--green-700); }
+
+  /* ---- privacy + QR ---- */
+  .small { font-size: .85rem; color: var(--muted); margin: 0; }
+  .small + .small { margin-top: 8px; }
+  .qr-body { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  #qrBox {
+    width: 128px; height: 128px; flex: 0 0 128px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px; display: flex; align-items: center; justify-content: center;
+  }
+  #qrBox svg { width: 100%; height: 100%; }
+  #qrBox .qr-placeholder {
+    border: 2px dashed var(--line); border-radius: 8px;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: .8rem; text-align: center;
+  }
+  #qrLink { color: var(--green-700); word-break: break-all; font-size: .9rem; }
+  #selftest { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .75rem; }
+
+  @media (min-width: 420px) {
+    .controls { grid-template-columns: 1fr 1fr; }
+    .controls .upload { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+    .fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <header>
+    <h1>🍃 Leaf Classifier</h1>
+    <p>Apple · Cherry · Chestnut · Maple<br>Point your camera at a leaf, or upload a photo.</p>
+  </header>
+
+  <div id="status" role="status" aria-live="polite">
+    <span class="spinner" id="spinner"></span>
+    <span id="statusText">Starting…</span>
+    <progress id="progress" max="100" value="0" hidden></progress>
+  </div>
+
+  <div id="error" role="alert" hidden></div>
+
+  <section class="card" aria-label="Camera and photo input">
+    <div class="stage">
+      <video id="video" playsinline muted autoplay hidden></video>
+      <img id="photo" alt="Your selected leaf photograph" hidden>
+      <div id="empty">No input yet.<br>Start the camera or upload a photo of a leaf.</div>
+      <div id="cropGuide" hidden></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="startBtn" type="button">Start camera</button>
+      <button class="btn secondary" id="stopBtn" type="button" disabled>Stop camera</button>
+      <label class="btn secondary upload" for="fileInput">Upload image
+        <input id="fileInput" type="file" accept="image/*">
+      </label>
+    </div>
+    <p class="hint">The dashed square marks the centre crop that is analysed. The camera needs HTTPS (GitHub Pages) — on a computer use a local server, not a <code>file://</code> URL.</p>
+  </section>
+
+  <section class="card" aria-label="Classification result">
+    <h2>Classification</h2>
+    <p id="topResult"><span class="dim">Waiting for input…</span></p>
+    <ul id="bars"></ul>
+    <p class="hint" id="perfHint">Probabilities are a softmax over the model's four raw scores.</p>
+  </section>
+
+  <section class="card">
+    <h2>Privacy</h2>
+    <p class="small">Everything runs on your device. The camera frames and your photos are read into a canvas, turned into a 1 × 3 × 96 × 96 tensor and classified by the ONNX model in your browser using WebAssembly. <strong>No image is ever uploaded.</strong></p>
+    <p class="small">The page loads only: the two JavaScript libraries listed in the HTML head (jsDelivr CDN) and the model files from this same site. There is no analytics, no tracking and no server-side inference.</p>
+  </section>
+
+  <section class="card">
+    <h2>Open on your phone — QR code</h2>
+    <div class="qr-body">
+      <div id="qrBox"></div>
+      <div style="flex:1;min-width:180px">
+        <p class="small" id="qrNote"></p>
+        <p style="margin:8px 0 0"><a id="qrLink" href="#" hidden rel="noopener"></a></p>
+      </div>
+    </div>
+  </section>
+
+  <pre id="selftest" hidden></pre>
+
+  <!-- Offscreen canvas used for the crop + resize + pixel readout. -->
+  <canvas id="work" width="96" height="96" hidden></canvas>
+</main>
+
+<script>
+'use strict';
+
+/* =======================================================================
+   Configuration
+   ===================================================================== */
+
+// Public address of this page, used for the QR code at the bottom.
+// After publishing on GitHub Pages you can paste your URL here, e.g.
+//   const APP_URL = "https://username.github.io/mlr-ex08/";
+// Leaving it empty is fine: on a *.github.io page the current address is
+// used automatically. Anywhere else a placeholder is shown instead of a
+// QR code that would point to the wrong place.
+const APP_URL = "";
+
+const ORT_DIST = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/";
+const MODEL_URL = "./leaf_model.onnx";   // relative: works in a Pages project repo
+const INFO_URL = "./model_info.json";
+const FRAME_INTERVAL_MS = 200;           // at most ~5 classifications / second
+
+/* =======================================================================
+   Small helpers and state
+   ===================================================================== */
+
+const $ = (id) => document.getElementById(id);
+const video = $('video');
+const photo = $('photo');
+const workCanvas = $('work');
+const workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
+workCtx.imageSmoothingEnabled = true;
+workCtx.imageSmoothingQuality = 'high';
+
+let session = null;      // ONNX Runtime inference session
+let info = null;         // contents of model_info.json
+let stream = null;       // MediaStream from the camera
+let running = false;     // is the live loop active?
+let busy = false;        // is one inference still running? (never overlap)
+let frameHandle = null;  // requestVideoFrameCallback handle
+let loopTimer = null;    // setTimeout fallback handle
+let lastFrame = 0;
+
+function setStatus(text, loading) {
+  $('statusText').textContent = text;
+  $('spinner').hidden = !loading;
+}
+function showError(message) {
+  $('error').textContent = message;
+  $('error').hidden = false;
+}
+function clearError() {
+  $('error').hidden = true;
+  $('error').textContent = '';
+}
+function showOnly(element) {
+  video.hidden = element !== video;
+  photo.hidden = element !== photo;
+  $('empty').hidden = element !== null;
+  $('cropGuide').hidden = element === null;   // same centre crop for video and photos
+}
+
+/* =======================================================================
+   Preprocessing — identical for camera frames and uploaded photos.
+   Matches the notebook's transforms.ToTensor() + transforms.Normalize()
+   with the centre-crop / resize the dataset images already went through.
+   ===================================================================== */
+function preprocess(source, sourceWidth, sourceHeight) {
+  const size = info.input_size;                       // 96
+  if (workCanvas.width !== size || workCanvas.height !== size) {
+    workCanvas.width = size;
+    workCanvas.height = size;
+  }
+
+  // 1) Crop the central square. 2) Resize it to 96 x 96.
+  //    drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+  const side = Math.min(sourceWidth, sourceHeight);
+  const sx = Math.floor((sourceWidth - side) / 2);
+  const sy = Math.floor((sourceHeight - side) / 2);
+  workCtx.drawImage(source, sx, sy, side, side, 0, 0, size, size);
+
+  // 3) Read the pixels as RGBA bytes (alpha is ignored -> RGB).
+  const rgba = workCtx.getImageData(0, 0, size, size).data;
+
+  // 4) + 5) + 6) /255, normalize per channel, channels FIRST:
+  //    index = c * size * size + y * size + x, exactly like PyTorch CHW.
+  const area = size * size;
+  const data = new Float32Array(3 * area);
+  for (let c = 0; c < 3; c++) {
+    const mean = info.mean[c];
+    const std = info.std[c];
+    const offset = c * area;
+    for (let i = 0; i < area; i++) {
+      data[offset + i] = (rgba[i * 4 + c] / 255 - mean) / std;
+    }
+  }
+  return new ort.Tensor('float32', data, [1, 3, size, size]);
+}
+
+// Softmax over the raw logits; the max is subtracted for numerical stability.
+function softmax(logits) {
+  const max = Math.max(...logits);
+  const exps = logits.map((v) => Math.exp(v - max));
+  const total = exps.reduce((a, b) => a + b, 0);
+  return exps.map((v) => v / total);
+}
+
+/* =======================================================================
+   Inference + rendering
+   ===================================================================== */
+async function classify(source, width, height) {
+  if (!session || !info || width === 0 || height === 0) return null;
+
+  const started = performance.now();
+  const input = preprocess(source, width, height);
+  const output = await session.run({ [session.inputNames[0]]: input });
+  const logits = Array.from(output[session.outputNames[0]].data);
+  const probabilities = softmax(logits);
+  const tensorShape = input.dims.slice();
+  input.dispose();
+
+  render(probabilities);
+  $('perfHint').textContent =
+    'Last inference: ' + Math.round(performance.now() - started) + ' ms on this device.';
+  return { logits, probabilities, tensorShape };
+}
+
+let barFills = [];
+let barValues = [];
+let barRows = [];
+
+function buildBars() {
+  const list = $('bars');
+  list.textContent = '';
+  barFills = []; barValues = []; barRows = [];
+  info.classes.forEach((name) => {
+    const li = document.createElement('li');
+    const label = document.createElement('div');
+    label.className = 'bar-label';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = name;
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'value';
+    valueSpan.textContent = '—';
+    const track = document.createElement('div');
+    track.className = 'track';
+    const fill = document.createElement('div');
+    fill.className = 'fill';
+    track.appendChild(fill);
+    label.append(nameSpan, valueSpan);
+    li.append(label, track);
+    list.appendChild(li);
+    barRows.push(li); barFills.push(fill); barValues.push(valueSpan);
+  });
+}
+
+function render(probabilities) {
+  let best = 0;
+  probabilities.forEach((p, i) => { if (p > probabilities[best]) best = i; });
+  probabilities.forEach((p, i) => {
+    const percent = (p * 100).toFixed(1) + '%';
+    barFills[i].style.width = (p * 100).toFixed(2) + '%';
+    barValues[i].textContent = percent;
+    barRows[i].classList.toggle('best', i === best);
+  });
+  $('topResult').textContent = info.classes[best] + ' — ' + (probabilities[best] * 100).toFixed(1) + '%';
+}
+
+/* =======================================================================
+   Model loading (with a download progress bar; the file is ~6 MB)
+   ===================================================================== */
+async function fetchWithProgress(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Could not load ' + url + ' (HTTP ' + response.status + '). ' +
+      'If you opened this file directly, serve the folder over HTTP instead — see README.md.');
+  }
+  const total = Number(response.headers.get('Content-Length')) || 0;
+  if (!response.body || !response.body.getReader) return response.arrayBuffer();
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let received = 0;
+  if (total) { $('progress').hidden = false; $('progress').max = total; }
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    if (total) {
+      $('progress').value = received;
+      setStatus('Loading model… ' + Math.round((received / total) * 100) + '%', true);
+    }
+  }
+  $('progress').hidden = true;
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+  return bytes.buffer;
+}
+
+async function init() {
+  try {
+    if (typeof ort === 'undefined') {
+      throw new Error('ONNX Runtime Web could not be loaded from the CDN. Check your internet connection and reload.');
+    }
+    // GitHub Pages sends no COOP/COEP headers, so the page is not
+    // crossOriginIsolated and WebAssembly threads are unavailable.
+    // One thread is required there; it also keeps phones cooler.
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.wasmPaths = ORT_DIST;
+
+    setStatus('Loading model settings…', true);
+    const infoResponse = await fetch(INFO_URL);
+    if (!infoResponse.ok) {
+      throw new Error('Could not load ' + INFO_URL + ' (HTTP ' + infoResponse.status + '). ' +
+        'If you opened this file directly, serve the folder over HTTP instead — see README.md.');
+    }
+    info = await infoResponse.json();
+    buildBars();
+
+    setStatus('Loading model…', true);
+    const modelBytes = await fetchWithProgress(MODEL_URL);
+
+    setStatus('Preparing the neural network…', true);
+    session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['wasm'] });
+    setStatus('Model ready (' + info.input_size + '×' + info.input_size +
+      ', ' + info.classes.length + ' classes). Start the camera or upload a photo.', false);
+  } catch (err) {
+    setStatus('Model failed to load.', false);
+    showError(String(err && err.message ? err.message : err));
+    console.error(err);
+  }
+}
+
+/* =======================================================================
+   Live camera
+   ===================================================================== */
+function cameraErrorMessage(err) {
+  const name = err && err.name;
+  switch (name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'Camera permission was denied.\nTap the lock / camera icon in the address bar, allow the camera for this site, then try again. You can still use “Upload image”.';
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No camera was found on this device. You can still use “Upload image”.';
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'The camera is already used by another app or tab. Close it and try again, or use “Upload image”.';
+    case 'SecurityError':
+      return 'The browser blocked camera access on this page. It must be opened over HTTPS.';
+    default:
+      return 'Could not start the camera: ' + (err && err.message ? err.message : name) +
+        '\nYou can still use “Upload image”.';
+  }
+}
+
+function updateButtons() {
+  $('startBtn').disabled = running;
+  $('stopBtn').disabled = !running;
+}
+
+async function startCamera() {
+  clearError();
+  stopCamera();
+
+  if (!window.isSecureContext) {
+    showError('The camera is only available on secure (HTTPS) pages. ' +
+      'Open the GitHub Pages address, or test locally on http://localhost. “Upload image” works without it.');
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showError('This browser does not support camera access. Try a current Safari, Chrome or Firefox, or use “Upload image”.');
+    return;
+  }
+
+  setStatus('Requesting camera permission…', true);
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },   // prefer the rear camera
+        width: { ideal: 640 },
+        height: { ideal: 640 }
+      }
+    });
+  } catch (err) {
+    if (err && err.name === 'OverconstrainedError') {
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true }); }
+      catch (err2) { setStatus('Model ready.', false); showError(cameraErrorMessage(err2)); return; }
+    } else {
+      setStatus('Model ready.', false);
+      showError(cameraErrorMessage(err));
+      return;
+    }
+  }
+
+  video.srcObject = stream;
+  try { await video.play(); } catch (err) { /* the user can tap Start again */ }
+  running = true;
+  showOnly(video);
+  updateButtons();
+  setStatus(session ? 'Live classification running.' : 'Camera on — waiting for the model.', false);
+  tick();
+}
+
+function stopCamera() {
+  running = false;
+  if (frameHandle !== null && typeof video.cancelVideoFrameCallback === 'function') {
+    video.cancelVideoFrameCallback(frameHandle);
+  }
+  frameHandle = null;
+  if (loopTimer !== null) { clearTimeout(loopTimer); loopTimer = null; }
+  if (stream) {
+    stream.getTracks().forEach((track) => track.stop());   // release the camera
+    stream = null;
+  }
+  video.srcObject = null;
+  updateButtons();
+}
+
+function scheduleNext() {
+  if (!running) return;
+  if (typeof video.requestVideoFrameCallback === 'function') {
+    frameHandle = video.requestVideoFrameCallback(tick);
+  } else {
+    loopTimer = setTimeout(tick, 66);   // Safari < 16 fallback
+  }
+}
+
+function tick() {
+  frameHandle = null;
+  if (!running) return;
+  const now = performance.now();
+  if (!busy && !document.hidden && video.readyState >= 2 &&
+      video.videoWidth > 0 && now - lastFrame >= FRAME_INTERVAL_MS) {
+    busy = true;
+    lastFrame = now;
+    classify(video, video.videoWidth, video.videoHeight)
+      .catch((err) => { console.error(err); showError('Classification failed: ' + err.message); })
+      // `busy` is released only after the inference promise settles,
+      // so two inferences can never run at the same time.
+      .finally(() => { busy = false; });
+  }
+  scheduleNext();
+}
+
+/* =======================================================================
+   Photo upload — works even with no camera at all
+   ===================================================================== */
+async function handleUpload(file) {
+  clearError();
+  stopCamera();
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showError('That file is not an image. Please choose a photo (JPEG, PNG, HEIC…).');
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const image = new Image();
+  image.onload = async () => {
+    photo.src = url;
+    showOnly(photo);
+    setStatus('Classifying photo…', true);
+    try {
+      await classify(image, image.naturalWidth, image.naturalHeight);
+      setStatus('Photo classified. Start the camera for live classification.', false);
+    } catch (err) {
+      showError('Classification failed: ' + err.message);
+      setStatus('Model ready.', false);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+  image.onerror = () => {
+    URL.revokeObjectURL(url);
+    setStatus('Model ready.', false);
+    showError('This photo could not be read by the browser. Try a JPEG or PNG image.');
+  };
+  image.src = url;
+}
+
+/* =======================================================================
+   QR code — generated locally in the browser, never by a web service
+   ===================================================================== */
+function setupQR() {
+  const box = $('qrBox');
+  const note = $('qrNote');
+  const link = $('qrLink');
+  const auto = location.hostname.endsWith('github.io')
+    ? location.origin + location.pathname.replace(/index\.html$/, '')
+    : '';
+  const url = APP_URL.trim() || auto;
+
+  if (!url) {
+    box.innerHTML = '<div class="qr-placeholder">QR code<br>not configured<br>yet</div>';
+    note.textContent = 'The public address of this page is not known yet. After publishing on GitHub Pages ' +
+      'the QR code appears here automatically (or set APP_URL at the top of the script in index.html).';
+    link.hidden = true;
+    return;
+  }
+  link.hidden = false;
+  link.href = url;
+  link.textContent = url;
+
+  if (typeof qrcode === 'function') {
+    const qr = qrcode(0, 'M');          // 0 = pick the smallest QR version that fits
+    qr.addData(url);
+    qr.make();
+    box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 8, scalable: true, alt: 'QR code for ' + url });
+    note.textContent = 'Scan this code with your phone camera to open this page. It encodes the address below, generated on your device.';
+  } else {
+    box.innerHTML = '<div class="qr-placeholder">QR library<br>unavailable</div>';
+    note.textContent = 'The QR library could not be loaded from the CDN. Use the link below instead.';
+  }
+}
+
+/* =======================================================================
+   Self test:  index.html?selftest=1
+   Runs check_image.jpg through exactly the same upload pipeline and prints
+   a JSON report, so the numbers can be compared with check_expected.json.
+   ===================================================================== */
+async function runSelfTest() {
+  const out = $('selftest');
+  out.hidden = false;
+  const report = { ok: false };
+  const finish = () => {
+    out.textContent = 'SELFTEST_JSON=' + JSON.stringify(report);
+    document.title = report.pass ? 'SELFTEST PASS' : 'SELFTEST FAIL';
+  };
+  try {
+    if (!session) throw new Error('Model did not load: ' + $('error').textContent);
+    report.inputNames = session.inputNames;
+    report.outputNames = session.outputNames;
+    report.classes = info.classes;
+    report.inputSize = info.input_size;
+    report.mean = info.mean;
+    report.std = info.std;
+    report.expected = await (await fetch('./check_expected.json')).json();
+
+    const image = new Image();
+    image.src = './check_image.jpg';
+    await image.decode();
+    report.imageSize = [image.naturalWidth, image.naturalHeight];
+
+    const result = await classify(image, image.naturalWidth, image.naturalHeight);
+    photo.src = image.src;
+    showOnly(photo);
+    report.tensorShape = result.tensorShape;
+    report.logits = result.logits;
+    report.probabilities = result.probabilities;
+    report.probabilitySum = result.probabilities.reduce((a, b) => a + b, 0);
+    report.compare = info.classes.map((name, i) => ({
+      class: name,
+      got: result.probabilities[i],
+      expected: report.expected[name],
+      gotRounded: result.probabilities[i].toFixed(3),
+      expectedRounded: report.expected[name].toFixed(3),
+      absDiff: Math.abs(result.probabilities[i] - report.expected[name])
+    }));
+    report.maxAbsDiff = Math.max(...report.compare.map((c) => c.absDiff));
+    report.pass =
+      report.tensorShape.join('x') === '1x3x' + info.input_size + 'x' + info.input_size &&
+      Math.abs(report.probabilitySum - 1) < 1e-5 &&
+      report.compare.every((c) => c.gotRounded === c.expectedRounded) &&
+      Object.keys(report.expected).join(',') === info.classes.join(',');
+    report.ok = true;
+  } catch (err) {
+    report.error = String(err && err.stack ? err.stack : err);
+  }
+  finish();
+}
+
+/* =======================================================================
+   Wiring
+   ===================================================================== */
+window.addEventListener('DOMContentLoaded', () => {
+  // Deferred library scripts have run by now, so `ort` and `qrcode` exist.
+  $('startBtn').addEventListener('click', startCamera);
+  $('stopBtn').addEventListener('click', () => {
+    stopCamera();
+    setStatus('Camera stopped.', false);
+    if (photo.hidden) showOnly(null);
+  });
+  $('fileInput').addEventListener('change', (event) => {
+    const file = event.target.files && event.target.files[0];
+    handleUpload(file);
+    event.target.value = '';   // allow choosing the same photo twice
+  });
+  window.addEventListener('pagehide', stopCamera);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && running) { lastFrame = 0; }
+  });
+  updateButtons();
+  setupQR();
+
+  const params = new URLSearchParams(location.search);
+  const done = init();
+  if (params.has('selftest')) done.then(runSelfTest);
+});
+</script>
+</body>
+</html>
