@@ -69,14 +69,22 @@ def prepare_data():
               f"this year's group data is not used")
         return
     if not os.path.exists(f"{GROUP}/.group_zip_url"):
-        import gdown                             # only this branch needs it: %pip install gdown
-        link = urlparse(GROUP_ZIP.strip())
-        assert link.hostname == "drive.google.com", "paste the Drive file link into GROUP_ZIP"
-        os.makedirs("data", exist_ok=True)
-        gdown.download(url=GROUP_ZIP, output="data/leaves.zip", quiet=True)
-        with zipfile.ZipFile("data/leaves.zip") as archive:
-            archive.extractall("data")
-        open(f"{GROUP}/.group_zip_url", "w").write(GROUP_ZIP)
+        # a ZIP you dropped in yourself wins, so you can hand over the data without a Drive link:
+        # put the teacher's group ZIP next to this file as data/leaves.zip
+        if os.path.exists("data/leaves.zip"):
+            os.makedirs("data", exist_ok=True)
+            with zipfile.ZipFile("data/leaves.zip") as archive:
+                archive.extractall("data")
+            open(f"{GROUP}/.group_zip_url", "w").write("local:data/leaves.zip")
+        else:
+            import gdown                         # only this branch needs it: %pip install gdown
+            link = urlparse(GROUP_ZIP.strip())
+            assert link.hostname == "drive.google.com", "paste the Drive file link into GROUP_ZIP"
+            os.makedirs("data", exist_ok=True)
+            gdown.download(url=GROUP_ZIP, output="data/leaves.zip", quiet=True)
+            with zipfile.ZipFile("data/leaves.zip") as archive:
+                archive.extractall("data")
+            open(f"{GROUP}/.group_zip_url", "w").write(GROUP_ZIP)
 
 
 def train_transform(size, augment):
