@@ -5,7 +5,7 @@ ex08_for_agent/
 
 # Task 4 runs: photographs, weights and checkpoints stay on the machine that ran them.
 data/
-results.csv
+results*.csv
 weights-*.pt
 *.pt
 __pycache__/

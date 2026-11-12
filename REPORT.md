@@ -14,50 +14,75 @@ fixed seed and repeated seeds.
 
 ## 1. The baseline and how it is measured
 
-Baseline: `TODO` — the Task 2 model (`mobilenet_v3_small`, whole network fine-tuned, Adam 1e-3,
-15 epochs) / the Task 3 `LeafNet`. Write which one, because every row is compared with it.
+**Baseline: the Task 2 recipe, retrained** — `mobilenet_v3_small` pretrained on ImageNet, last layer
+replaced by 4 outputs, the **whole** network fine-tuned with Adam at lr 1e-3, batch 32, 15 epochs,
+no augmentation. It is retrained here instead of reusing `leaf_model.onnx` so that the baseline and
+every variant come from the same code with the same seeds; §2 shows the model that is on the page
+today, and the two agree (0.774 on this year's validation set for the page model, 0.742 / 0.774 /
+0.790 for the retrained baseline over three seeds).
 
-Code that produced the table: `task4_variants.py`, `RUN = TODO`, seeds `TODO`.
-
-Each variant is scored on three sets, all identical for every row:
+Code: `task4_variants.py`, `RUN = all 13 variants`, `SEEDS = [0, 1, 2]`, run on the CPU, about
+40 minutes. One change from the baseline per row. The data and the three scoring sets are the same
+for every row:
 
 | Column | What it is | Why it is there |
 | --- | --- | --- |
-| **val** | this year's validation photographs | the number the notebook prints |
-| **camera** | the same photographs cropped, rotated and recoloured once, fixed seed 7 | the closest thing we have to the phone camera without taking new photos |
-| **last year** | last year's public photos, 30 per species, other students, other phones | the only set nobody in the group has ever photographed |
+| **val** | 62 of this year's validation photographs | the number the notebook prints, and the least reliable one |
+| **camera** | the same 62 photographs, cropped, rotated ±30° and recoloured once with fixed seed 7 | the closest thing we have to the phone camera without going out and taking new photos |
+| **last year** | 120 public photographs from last year — other students, other phones, other weather | the only set this year's model has never had any contact with |
+
+The `camera` and `last year` columns are generated identically for every variant, so a row that
+wins on them really generalises better; a row that wins only on `val` has mostly learned more about
+62 photographs.
 
 ## 2. Where we start (measured before any change)
 
-The exported `leaf_model.onnx` from Task 2, run unchanged through ONNX Runtime on last year's
-photographs — i.e. the model that is on my page today, tested on leaves nobody in my group
-photographed. 820 images, of which the model has seen none.
+`eval_page_model.py` scores the model that is on the page today — `leaf_model.onnx` from Task 2,
+unmodified — on the same three sets that every variant below is scored on. Nothing was retrained
+for this table; it is the model as it stands.
 
-| Set | Accuracy |
-| --- | --- |
-| last year, val (120 images) | **0.642** (77 / 120) |
-| last year, train (700 images) | 0.624 (437 / 700) |
+| Set | Accuracy | What fails |
+| --- | --- | --- |
+| this year, val (62) | **0.774** | apple 0.588, cherry 0.632 recall; chestnut and maple 1.000 |
+| camera-like (the same 62) | **0.661** | apple recall falls to **0.235** — 13 of 17 apples become cherry |
+| last year, val (120) | **0.642** | cherry recall falls to **0.133** — 22 of 30 cherries become apple |
 
-| truth \ pred | apple | cherry | chestnut | maple | recall |
-| --- | --- | --- | --- | --- | --- |
-| apple | 24 | 3 | 2 | 1 | 0.800 |
-| cherry | **22** | 4 | 0 | 4 | **0.133** |
-| chestnut | 0 | 2 | 22 | 6 | 0.733 |
-| maple | 3 | 0 | 0 | 27 | 0.900 |
+| last year, truth \ pred | apple | cherry | chestnut | maple |
+| --- | --- | --- | --- | --- |
+| apple | 24 | 3 | 2 | 1 |
+| cherry | **22** | 4 | 0 | 4 |
+| chestnut | 0 | 2 | 22 | 6 |
+| maple | 3 | 0 | 0 | 27 |
 
-So the classifier is not weak everywhere: **cherry is being read as apple**, 22 times out of 30.
-`TODO` — write why you think that is, and which of your changes is aimed at it.
+The classifier is not weak everywhere. **Chestnut and maple are never confused with anything** on
+this year's photos, and every mistake in all three tables is between **apple and cherry** — in one
+direction on this year's photos, in the other direction on last year's. The two species differ by
+the fine serration of the edge and by the pattern of the veins, and on a 96 × 96 photograph taken
+hand-held, in a different light, that difference is what disappears first: the same six leaves that
+are 0.588 apple on a flat validation photo are 0.235 apple once the picture is cropped, rotated and
+recoloured.
+
+So the improvements in this report are not judged by whether they raise the overall number, but by
+whether they fix **apple against cherry** and survive the camera column.
 
 ## 3. How big is the noise
 
-The validation set has 120 images, so **one image is 0.83 percentage points**. With 120 images and
-an accuracy around 0.64, the binomial spread of a single measurement is about **±4.4 pp for 1σ,
-±8.8 pp for 2σ**. To call a 5 pp improvement real you would need about 370 images, not 120.
+This year's data is small: **244 training and 62 validation photographs** (train: cherry 75,
+apple 68, maple 60, chestnut 41 — val: 19, 17, 15, 11). So on the `val` column **one image is
+1.6 percentage points**, and a single measurement near 75 % accuracy has a spread of about
+**±5.5 pp for 1σ, ±11 pp for 2σ**. A difference between two variants has to be bigger than that to
+be a difference at all, which is why every row below is repeated with three seeds.
 
-| n | one image | 1σ around 0.64 | 2σ around 0.64 |
+| n | one image | 1σ around 0.75 | 2σ around 0.75 |
 | --- | --- | --- | --- |
-| 120 (val, camera, last-year-val) | 0.83 pp | 4.4 pp | 8.8 pp |
-| 700 (last-year-train) | 0.14 pp | 1.8 pp | 3.6 pp |
+| 62 (val, camera) | 1.61 pp | 5.5 pp | 11.0 pp |
+| 120 (last year, val) | 0.83 pp | 4.0 pp | 7.9 pp |
+| 700 (last year, train) | 0.14 pp | 1.3 pp | 2.7 pp |
+
+To call a 5 pp improvement real you would need about 260 images, not 62. Averaging three seeds
+removes the part of the noise that comes from the training run itself — shuffling, dropout, random
+augmentation — but it cannot remove the part that comes from only having 62 photographs to test on,
+because every seed is tested on the same 62.
 
 `TODO` — say in your own words: which rows of your table are therefore **not** a difference, only
 a different roll of the same dice, and how repeating the seeds helped you decide.
