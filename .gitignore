@@ -2,3 +2,10 @@
 Copy of ex08_student.ipynb
 ex08_for_agent.zip
 ex08_for_agent/
+
+# Task 4 runs: photographs, weights and checkpoints stay on the machine that ran them.
+data/
+results.csv
+weights-*.pt
+*.pt
+__pycache__/

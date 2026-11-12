@@ -9,6 +9,9 @@ to install and no server-side inference.
 * `leaf_model.onnx` — the trained model (unmodified copy of the file from the notebook)
 * `model_info.json` — class names, input size, mean and standard deviation
 * `check_image.jpg`, `check_expected.json` — the notebook's reference image and probabilities
+* `REVIEW.md` — the Task 2 review of this page, written by hand, with the phone screenshot
+* `REPORT.md` — the Task 4 report on what made the classifier better
+* `eval_lastyear.py`, `task4_variants.py` — the two scripts behind that report, not used by the page
 
 The notebook, the model and the reference files are not modified by this project.
 
@@ -19,7 +22,8 @@ The notebook, the model and the reference files are not modified by this project
 <!-- ============================ -->
 
 Published from the public repository [AdamB4B/mlr-ex08](https://github.com/AdamB4B/mlr-ex08)
-using **Settings → Pages → Deploy from a branch → main / (root)**. No collaborators have been added.
+using **Settings → Pages → Deploy from a branch → main / (root)**. **`MLRteacher` is invited as a
+collaborator** under Settings → Collaborators (the invitation may still be pending).
 
 ## Run it locally
 
@@ -56,16 +60,14 @@ The QR code at the bottom of the page is generated **in the browser** (library
 In `index.html`, near the top of the `<script>` block:
 
 ```js
-const APP_URL = "";
+const APP_URL = "https://adamb4b.github.io/mlr-ex08/";
 ```
 
-* **Easiest — leave it empty.** When the page is served from `*.github.io`, the QR code
-  automatically encodes the page's own public address. So after you publish, it is already correct.
-* **Or set it explicitly**, which also makes the QR code correct in local testing:
-
-  ```js
-  const APP_URL = "https://USERNAME.github.io/mlr-ex08/";
-  ```
+* It is **set explicitly to the published address**, so the correct QR code also appears when you
+  open the local `index.html` file directly.
+* Leaving it empty would also work on GitHub Pages: on `*.github.io` the QR code automatically
+  encodes the page's own public address. A local HTML file cannot know that address, which is why
+  the explicit setting above is useful.
 
 Commit and push again after changing it. If neither is available, the QR panel says
 “QR code not configured yet” instead of showing a code that points to the wrong place.
@@ -106,3 +108,13 @@ The exact same `preprocess()`/`classify()` functions serve the live camera and t
 
 No image, frame or photo leaves the device. The only network requests are the two CDN libraries
 (jsDelivr) and the model/reference files from this same site. No analytics, no tracking, no backend.
+
+## Task 4 — improving the model
+
+`task4_variants.py` and `eval_lastyear.py` (in this repository, not used by the page) belong to
+Task 4. The second one scores the model that is on this page today against last year's public
+photographs and needs only `numpy`, `onnxruntime` and `Pillow`. The first one trains one variant at
+a time against a fixed baseline and scores every variant on three fixed sets: this year's
+validation images, a *camera-like* version of them generated once with a fixed seed, and last
+year's photos. Their output is the table in `REPORT.md`. The page itself only ever runs the single
+model in `leaf_model.onnx`.
