@@ -1,0 +1,14 @@
+# Everything needed to re-run the experiments and the browser tests.
+# The page itself needs nothing installed - it runs in the browser.
+torch>=2.5
+torchvision>=0.20
+numpy>=1.26
+pandas>=2.0
+pillow>=10
+scipy>=1.13
+gdown>=5
+onnx>=1.16
+onnxruntime>=1.18
+onnxscript>=0.2
+playwright>=1.48
+zxing-cpp>=2.2

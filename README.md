@@ -1,120 +1,121 @@
-# Leaf Classifier — MLR Exercise 8, Task 2
+# MLR Exercise 8 — leaf classifier on the phone (Task 2) and the Task 4 experiments
 
-A static web page that classifies leaves (**apple, cherry, chestnut, maple**) with the
-`leaf_model.onnx` network exported in the Exercise 8 notebook. The model runs **entirely in
-the browser** with ONNX Runtime Web (WebAssembly) — on Android and on iPhone, with no app
-to install and no server-side inference.
+Four species from a phone photograph: **apple, cherry, chestnut, maple**. The network is the
+notebook's `mobilenet_v3_small`, fine-tuned on 244 photographs and exported to ONNX, and it runs
+**in the browser** with ONNX Runtime Web (WebAssembly) — nothing is sent to a server.
 
-* `index.html` — the whole application (HTML + CSS + JavaScript in one file)
-* `leaf_model.onnx` — the trained model (unmodified copy of the file from the notebook)
-* `model_info.json` — class names, input size, mean and standard deviation
-* `check_image.jpg`, `check_expected.json` — the notebook's reference image and probabilities
-* `REVIEW.md` — the Task 2 review of this page, written by hand, with the phone screenshot
-* `REPORT.md` — the Task 4 report on what made the classifier better
-* `eval_lastyear.py`, `task4_variants.py` — the two scripts behind that report, not used by the page
+This folder is self-contained: the page, the model, the reference files, the Task 4 experiments, the
+tests and their recorded output.
 
-The notebook, the model and the reference files are not modified by this project.
+* `index.html` — the whole application (HTML + CSS + JavaScript in one file), byte-identical to the
+  page served at <https://adamb4b.github.io/mlr-ex08/>
+* `leaf_model.onnx`, `model_info.json`, `check_image.jpg`, `check_expected.json` — the four files the
+  notebook produced in Task 2, unmodified
+* `ScreenShot.png` — the phone screenshot used in `REVIEW.md`
+* `REVIEW.md` — the Task 2 review, with the numbers measured by the tests below
+* `REPORT.md` — the Task 4 report
+* `task4_variants.py`, `run_task4.py`, `analyze_results.py`, `eval_paired.py`, `eval_variant.py`,
+  `eval_page_model.py`, `eval_lastyear.py`, `export_best.py` — the Task 4 experiments (not used by the
+  page)
+* `predict_onnx.py` — one image through `leaf_model.onnx` with the notebook's preprocessing
+* `export/` — the improved Task 4 model (`leaf_model.onnx`, `model_info.json`, `check_expected.json`)
+  and `export/site/`, a copy of the page that loads it
+* `tests/` — the browser tests and their evidence (`tests/evidence/*.json`, `*.png`)
+* `data/`, `weights-*.pt` — the photographs and the saved weights (kept locally, not part of the
+  hand-in)
+* `results.csv`, `analysis.txt`, `task4_run*.log` — what the experiments measured and the output they
+  printed
 
-## Public address (GitHub Pages)
+## Requirements
 
-<!-- ===== GITHUB PAGES URL ===== -->
-**Public URL:** <https://adamb4b.github.io/mlr-ex08/>
-<!-- ============================ -->
-
-Published from the public repository [AdamB4B/mlr-ex08](https://github.com/AdamB4B/mlr-ex08)
-using **Settings → Pages → Deploy from a branch → main / (root)**. **`MLRteacher` is invited as a
-collaborator** under Settings → Collaborators (the invitation may still be pending).
-
-## Run it locally
-
-Browsers refuse `fetch()` and camera access on `file://` pages, so serve the folder over HTTP:
+Only needed to re-run the experiments and the tests; the page itself installs nothing.
 
 ```powershell
-# in this folder
+python -m pip install -r requirements.txt
+python -m playwright install chromium webkit     # the two browsers the tests drive
+```
+
+## Run the page locally
+
+Browsers refuse `fetch()` and the camera on `file://` pages, so serve the folder:
+
+```powershell
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000/index.html>.
+then open <http://localhost:8000/index.html>. Camera access needs a secure context: `http://localhost`
+counts, any other address must be `https://`.
 
-*Model loading needs an internet connection* (ONNX Runtime Web and the QR encoder come from the
-jsDelivr CDN). Camera access additionally needs a **secure context**: `http://localhost` is accepted
-by browsers, any other address must be `https://`.
+The page loads three things from the jsDelivr CDN (ONNX Runtime Web, its WebAssembly binary, and the
+QR encoder) and everything else from its own site. The model is ~6.3 MB and is cached by the browser
+after the first load.
 
-To try it on your phone before publishing, both devices must be on the same network and you need
-HTTPS for the camera — the simplest correct path is to publish on GitHub Pages. Uploading a photo
-works over plain HTTP on a LAN.
+## Verify it yourself
 
-### Verify the numbers yourself
+The page has a built-in self test that runs `check_image.jpg` through exactly the same upload
+pipeline and prints a JSON report:
 
-Open <http://localhost:8000/index.html?selftest=1>. The page runs `check_image.jpg` through the
-same pipeline as an uploaded photo and prints a JSON report containing `logits`, `probabilities`,
-`tensorShape`, a per-class comparison with `check_expected.json` and an overall `pass` flag.
+<https://adamb4b.github.io/mlr-ex08/?selftest=1> — the title becomes `SELFTEST PASS` and the block at
+the bottom starts with `SELFTEST_JSON=`.
 
-Alternatively just click **Upload image** and choose `check_image.jpg`.
+The same checks, plus the ones the page cannot do itself, are automated:
 
-## Configure the QR code after publishing
-
-The QR code at the bottom of the page is generated **in the browser** (library
-`qrcode-generator`, inline SVG). It never uses an external QR-image service.
-
-In `index.html`, near the top of the `<script>` block:
-
-```js
-const APP_URL = "https://adamb4b.github.io/mlr-ex08/";
+```powershell
+python tests/make_probes.py                              # the exact-tensor probe images
+python tests/verify_page.py --browser chromium           # local copy of the page
+python tests/verify_page.py --browser webkit             # Safari's engine, desktop
+python tests/verify_page.py --browser chromium --url https://adamb4b.github.io/mlr-ex08/index.html
+python tests/verify_page.py --browser chromium --fake-camera   # the live loop, fake video device
+python tests/verify_errors.py                            # missing model, refused camera
 ```
 
-* It is **set explicitly to the published address**, so the correct QR code also appears when you
-  open the local `index.html` file directly.
-* Leaving it empty would also work on GitHub Pages: on `*.github.io` the QR code automatically
-  encodes the page's own public address. A local HTML file cannot know that address, which is why
-  the explicit setting above is useful.
+Each run writes `tests/evidence/<browser>-<tag>.json` with every check, the full `SELFTEST_JSON`,
+every network request and a screenshot. What was measured on 13 November 2026:
 
-Commit and push again after changing it. If neither is available, the QR panel says
-“QR code not configured yet” instead of showing a code that points to the wrong place.
-Scan the code with your phone and check that the encoded address matches the address bar.
+| Check | Result |
+| --- | --- |
+| `?selftest=1` vs `check_expected.json`, Chromium and WebKit, local and live | `SELFTEST PASS`, largest difference **1.25e-06** |
+| the four probabilities to three decimals | apple 0.983, cherry 0.017, chestnut 0.000, maple 0.000 |
+| the same numbers through the real **Upload image** button | apple 98.3 %, cherry 1.7 %, chestnut 0.0 %, maple 0.0 % |
+| centre crop: a 288x96 strip whose middle square *is* `check_image.jpg` | identical probabilities (1.25e-06) |
+| three constant-colour images (exact tensor, catches channel order) | largest difference **7.95e-06** |
+| QR code: the page's own SVG screenshotted and decoded with zxing-cpp | decodes to `https://adamb4b.github.io/mlr-ex08/` |
+| network, whole page load | 6 GET requests, 2 hosts (`adamb4b.github.io`, `cdn.jsdelivr.net`), no writes |
+| live camera loop (fake device, Chromium) | 18–26 ms per frame, Stop releases the camera |
+| missing `leaf_model.onnx` | "Could not load ./leaf_model.onnx (HTTP 404)", no probabilities shown |
+| camera permission refused | the page explains it and the upload still classifies |
 
-## How the preprocessing matches the notebook
+**Not tested:** a physical iPhone. The iOS claim rests on the code (no iOS-only feature, WebAssembly
+SIMD, single-threaded WASM) and on WebKit — Safari's engine — passing every check on the desktop.
+The only real-phone evidence in this hand-in is `ScreenShot.png`, taken on an Android phone.
 
-`model_info.json`: `input_size = 96`, `classes = [apple, cherry, chestnut, maple]`,
-`mean = [0.485, 0.456, 0.406]`, `std = [0.229, 0.224, 0.225]`.
+## The QR code
 
-The notebook runs `transforms.ToTensor()` followed by `transforms.Normalize(mean, std)` on
-photographs that were already centre-cropped and resized to 96 × 96. The page reproduces this
-in the function **`preprocess()`** in `index.html`, in this order:
+It is drawn **in the browser** by `qrcode-generator` from the jsDelivr CDN — inline SVG, no QR-image
+service, no request carrying the URL. The address it encodes is `APP_URL` at the top of the script in
+`index.html`, set to the public address, so the QR is correct even when the file is opened from a
+local server. `tests/verify_page.py` decodes the rendered code and fails if it is not exactly the
+public URL.
 
-1. central square crop of the frame/photo (`side = min(width, height)`),
-2. resize to 96 × 96 with `drawImage(...)` on an offscreen canvas (`imageSmoothingQuality = 'high'`),
-3. pixels read with `getImageData()`, alpha ignored → RGB,
-4. each value divided by 255 (like `ToTensor()`),
-5. `(value − mean[c]) / std[c]` per channel (like `Normalize()`),
-6. written **channel-first** as `[1, 3, 96, 96]` — index `c*96*96 + y*96 + x`, matching PyTorch CHW.
+## Task 4: the experiments
 
-The model's output is the raw score vector `logits` (shape `[1, 4]`); the page applies **softmax**
-in `softmax()` and prints the classes in the order given by `model_info.json`.
-The exact same `preprocess()`/`classify()` functions serve the live camera and the photo upload.
+```powershell
+python run_task4.py                    # every variant, three seeds -> results.csv + weights-NN.pt
+python analyze_results.py              # the table with the change against the baseline
+python eval_paired.py "baseline (Task 2)" "+ colour + geometric"
+python eval_page_model.py              # the model that is on the page, on the same three sets
+python export_best.py "+ colour + geometric" 1   # -> export/leaf_model.onnx + its own reference
+```
 
-## Camera and performance notes
+Every variant is the Task 2 recipe with **one** key changed; the three scoring sets are built once
+and shared by every row:
 
-* Rear camera preferred (`facingMode: { ideal: 'environment' }`), front camera as browser fallback.
-* The live loop uses `requestVideoFrameCallback` where available, a timer otherwise, classifies at
-  most every 200 ms and never lets two inferences overlap (`busy` flag).
-* `ort.env.wasm.numThreads = 1` is deliberate: GitHub Pages sends no COOP/COEP headers, so the page
-  is not `crossOriginIsolated` and multi-threaded WebAssembly would fail there.
-* First load downloads ~6 MB of model plus the ONNX Runtime Web WASM binary; both are then cached
-  by the browser. WebAssembly SIMD is required — Safari 16.4+ / iOS 16.4+ and current Chrome/Firefox.
-* The camera is released on **Stop camera**, when a photo is uploaded and when the page is left.
+| Column | What it is |
+| --- | --- |
+| `val` | 62 of this year's validation photographs |
+| `camera` | the same 62, cropped, rotated ±30° and recoloured once with fixed seed 7 |
+| `last year` | 120 public photographs from last year's session |
 
-## Privacy
-
-No image, frame or photo leaves the device. The only network requests are the two CDN libraries
-(jsDelivr) and the model/reference files from this same site. No analytics, no tracking, no backend.
-
-## Task 4 — improving the model
-
-`task4_variants.py` and `eval_lastyear.py` (in this repository, not used by the page) belong to
-Task 4. The second one scores the model that is on this page today against last year's public
-photographs and needs only `numpy`, `onnxruntime` and `Pillow`. The first one trains one variant at
-a time against a fixed baseline and scores every variant on three fixed sets: this year's
-validation images, a *camera-like* version of them generated once with a fixed seed, and last
-year's photos. Their output is the table in `REPORT.md`. The page itself only ever runs the single
-model in `leaf_model.onnx`.
+Seeds are fixed per run (`torch.manual_seed`), and a repeated run of `baseline (Task 2)` seed 0 in a
+fresh process reproduced 0.774 / 0.694 / 0.550 exactly. `results.csv` is the single source of every
+number in `REPORT.md`.

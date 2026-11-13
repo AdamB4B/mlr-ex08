@@ -31,7 +31,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 GROUP_ZIP = ""   # the teacher's shared Google Drive ZIP file link, the same as in Task 2
 ARCHIVE_ZIP = ("https://raw.githubusercontent.com/tomasvicar/MLR-public/"
                "master/exercises/data/ex08_leaves_images.zip")
-SEEDS = [0, 1]
+SEEDS = [0, 1, 2]
 MEAN, STD = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 GROUP = "data/leaves"                       # this year: train/ val/ with one folder per class
 OLD = "data/leaves_old/leaves"              # last year, unpacked one level deeper
@@ -180,6 +180,8 @@ class LeafNet(nn.Module):
 def build_model(cfg):
     if cfg["network"] == "mobilenet":
         model = models.mobilenet_v3_small(weights="DEFAULT")
+        if cfg["dropout"]:                    # one change: the dropout rate already in the classifier
+            model.classifier[2].p = cfg["dropout"]
         model.classifier[3] = nn.Linear(model.classifier[3].in_features, 4)
         if cfg["freeze"]:                     # only the new last layer is allowed to learn
             for name, p in model.named_parameters():
@@ -220,10 +222,17 @@ def train_one(cfg, seed):
     scored = ("val", "camera", "old") if paths["old"] else ("val", "camera")
 
     criterion = nn.CrossEntropyLoss(label_smoothing=cfg["label_smoothing"])
-    if cfg["class_weights"]:                  # the class the network keeps losing gets a louder loss
+    if cfg["class_weights"]:
+        # "inverse": every class gets the same total weight, so the rare class is louder.
+        # "cherry":  the class the confusion matrices show losing to apple gets a louder loss.
         labels = [s[1] for s in train_sets[0].samples]
         counts = np.bincount(labels, minlength=len(train_sets[0].classes)).astype("float64")
-        weights = torch.tensor(counts.sum() / (len(counts) * counts), dtype=torch.float32)
+        if cfg["class_weights"] == "inverse":
+            weights = counts.sum() / (len(counts) * counts)
+        else:
+            weights = np.ones(len(counts))
+            weights[train_sets[0].classes.index("cherry")] = 2.0
+        weights = torch.tensor(weights, dtype=torch.float32)
         criterion = nn.CrossEntropyLoss(weight=weights.to(device),
                                         label_smoothing=cfg["label_smoothing"])
         print("    class weights", weights.numpy().round(2))
@@ -277,7 +286,9 @@ VARIANTS = {
         augment=("colour", "crop"), lr=1e-4, scheduler=True, epochs=40, best_epoch=True),
     "+ label smoothing": dict(label_smoothing=0.1),
     "+ weight decay 1e-4": dict(weight_decay=1e-4),
-    "+ class weights": dict(class_weights=True),
+    "+ class weights": dict(class_weights="inverse"),
+    "+ class weights aimed at cherry (x2)": dict(class_weights="cherry"),
+    "+ dropout 0.5 in the classifier": dict(dropout=0.5),
     "+ last year's photos added to training": dict(extra_data=True),
     "+ last year, augmentation, cosine, best epoch": dict(
         extra_data=True, augment=("colour", "crop"), lr=1e-4, scheduler=True, epochs=40,
@@ -286,35 +297,64 @@ VARIANTS = {
     # the network of Task 3, trained from scratch, for scale
     "Task 3 LeafNet from scratch": dict(network="leafnet"),
     "LeafNet + BN + augmentation": dict(network="leafnet", bn=True, augment=("colour", "crop")),
+    "LeafNet + global average pooling": dict(network="leafnet", gap=True),
+    "LeafNet + GAP + BN + augmentation": dict(
+        network="leafnet", gap=True, bn=True, augment=("colour", "crop")),
 }
 
-# edit this list to run fewer rows first; a row is ~1-3 minutes on a T4
-RUN = list(VARIANTS)
+# The rows run in this order: the decision rows first, so an interrupted sweep still holds the
+# rows the report's conclusion rests on. A row is ~1-2 minutes on this CPU.
+RUN = [
+    "baseline (Task 2)",
+    "+ colour jitter",
+    "+ geometric augmentation",
+    "+ colour + geometric",
+    "+ all augmentation, cosine, 40 epochs",
+    "+ dropout 0.5 in the classifier",
+    "+ class weights aimed at cherry (x2)",
+    "LeafNet + global average pooling",
+    "+ label smoothing",
+    "+ weight decay 1e-4",
+    "+ class weights",
+    "+ frozen backbone, head only",
+    "+ backbone lr 1e-4, cosine, best epoch",
+    "Task 3 LeafNet from scratch",
+    "LeafNet + BN + augmentation",
+    "LeafNet + GAP + BN + augmentation",
+    "+ input 160 x 160",
+    "+ last year's photos added to training",
+    "+ last year, augmentation, cosine, best epoch",
+]
 
 
-def run_rows(run=RUN, seeds=SEEDS):
+def run_rows(run=RUN, seeds=SEEDS, csv="results.csv"):
     prepare_data()
     has_old = folders()["old"] is not None
     columns = ["val", "camera", "last_year"] if has_old else ["val", "camera"]
-    rows = []
+    # a later block appends to the same table, so results.csv always lists every run made so far
+    rows = pd.read_csv(csv).to_dict("records") if os.path.exists(csv) else []
+    print(f"{csv}: {len(rows)} rows already measured")
     for name in run:
         cfg = {**BASE, **VARIANTS[name]}
         if not has_old and cfg["extra_data"]:
             print(f"\n{name}: skipped, last year's photos are the only data in this run")
             continue
         for seed in seeds:
+            if any(r["variant"] == name and int(r["seed"]) == seed for r in rows):
+                print(f"\n{name}  seed {seed}: already measured, skipped")
+                continue
             print(f"\n{name}  seed {seed}")
             model, acc = train_one(cfg, seed)
             row = dict(variant=name, seed=seed, val=round(acc["val"], 3),
                        camera=round(acc["camera"], 3))
             if has_old:
                 row["last_year"] = round(acc["old"], 3)
-            rows.append(row)
             print("  -> " + "   ".join(f"{k} {row[k]:.3f}" for k in columns))
-            torch.save(model.state_dict(), f"weights-{len(rows) - 1:02d}.pt")
-            pd.DataFrame(rows).to_csv("results.csv", index=False)   # save after every row
+            # the row number is also the weight file name, so any row can be found again later
+            torch.save(model.state_dict(), f"weights-{len(rows):02d}.pt")
+            rows.append(row)
+            pd.DataFrame(rows).to_csv(csv, index=False)   # save after every row
     table = pd.DataFrame(rows)
-    table.to_csv("results.csv", index=False)
     print("\nmean over seeds:\n", table.groupby("variant")[columns].mean().round(3).to_string())
     return table
 

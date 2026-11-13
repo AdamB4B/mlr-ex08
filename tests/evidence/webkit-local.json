@@ -1,0 +1,414 @@
+{
+ "url": "http://127.0.0.1:52728/index.html",
+ "browser": "webkit",
+ "tag": "local",
+ "started": "2026-11-13 09:55:27",
+ "checks": [
+  {
+   "check": "selftest ran",
+   "pass": true,
+   "detail": "ok"
+  },
+  {
+   "check": "selftest pass flag",
+   "pass": true,
+   "detail": "maxAbsDiff 1.25e-06"
+  },
+  {
+   "check": "selftest tensor shape",
+   "pass": true,
+   "detail": [
+    1,
+    3,
+    96,
+    96
+   ]
+  },
+  {
+   "check": "selftest 3 decimals",
+   "pass": true,
+   "detail": {
+    "apple": [
+     "0.983",
+     "0.983"
+    ],
+    "cherry": [
+     "0.017",
+     "0.017"
+    ],
+    "chestnut": [
+     "0.000",
+     "0.000"
+    ],
+    "maple": [
+     "0.000",
+     "0.000"
+    ]
+   }
+  },
+  {
+   "check": "upload predicts the expected class",
+   "pass": true,
+   "detail": "apple \u2014 98.3%"
+  },
+  {
+   "check": "page exposes classify()",
+   "pass": true,
+   "detail": "function"
+  },
+  {
+   "check": "centre crop picks the middle square",
+   "pass": true,
+   "detail": "max |page - check_expected| = 1.25e-06, shape [1, 3, 96, 96]"
+  },
+  {
+   "check": "centre crop tensor shape",
+   "pass": true,
+   "detail": [
+    1,
+    3,
+    96,
+    96
+   ]
+  },
+  {
+   "check": "constant colour probe 1",
+   "pass": true,
+   "detail": "max |browser - onnx| = 1.15e-06 (top cherry)"
+  },
+  {
+   "check": "constant colour probe 2",
+   "pass": true,
+   "detail": "max |browser - onnx| = 1.84e-06 (top cherry)"
+  },
+  {
+   "check": "constant colour probe 3",
+   "pass": true,
+   "detail": "max |browser - onnx| = 7.95e-06 (top cherry)"
+  },
+  {
+   "check": "QR decodes to the public URL",
+   "pass": true,
+   "detail": [
+    "https://adamb4b.github.io/mlr-ex08/"
+   ]
+  },
+  {
+   "check": "clickable link points at the public URL",
+   "pass": true,
+   "detail": "https://adamb4b.github.io/mlr-ex08/"
+  },
+  {
+   "check": "no request writes anything",
+   "pass": true,
+   "detail": []
+  },
+  {
+   "check": "only the page's own host and the CDN are contacted",
+   "pass": true,
+   "detail": [
+    "http://127.0.0.1:52728",
+    "https://cdn.jsdelivr.net"
+   ]
+  },
+  {
+   "check": "image data stays in local blob:/data: URLs",
+   "pass": true,
+   "detail": [
+    "blob:http://127.0.0.1:52728/80dedb98-76f6-4467-8473-fe05fa885d58"
+   ]
+  },
+  {
+   "check": "no console errors",
+   "pass": true,
+   "detail": "none"
+  }
+ ],
+ "console": [],
+ "requests": [
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/index.html?selftest=1",
+   "type": "document"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.min.js",
+   "type": "script"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js",
+   "type": "script"
+  },
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/model_info.json",
+   "type": "fetch"
+  },
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/leaf_model.onnx",
+   "type": "fetch"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort-wasm-simd-threaded.jsep.mjs",
+   "type": "script"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort-wasm-simd-threaded.jsep.wasm",
+   "type": "fetch"
+  },
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/check_expected.json",
+   "type": "fetch"
+  },
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/check_image.jpg",
+   "type": "image"
+  },
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/index.html",
+   "type": "document"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.min.js",
+   "type": "script"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js",
+   "type": "script"
+  },
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/model_info.json",
+   "type": "fetch"
+  },
+  {
+   "method": "GET",
+   "url": "http://127.0.0.1:52728/leaf_model.onnx",
+   "type": "fetch"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort-wasm-simd-threaded.jsep.mjs",
+   "type": "script"
+  },
+  {
+   "method": "GET",
+   "url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort-wasm-simd-threaded.jsep.wasm",
+   "type": "fetch"
+  },
+  {
+   "method": "GET",
+   "url": "blob:http://127.0.0.1:52728/80dedb98-76f6-4467-8473-fe05fa885d58",
+   "type": "image"
+  }
+ ],
+ "screenshots": [
+  "C:\\Users\\adamb\\OneDrive\\V\u00fd\u0161ka\\Ing\\Semester 1\\MLR\\Cvicenia\\08\\tests\\evidence\\upload-webkit-local.png"
+ ],
+ "selftest": {
+  "ok": true,
+  "inputNames": [
+   "image"
+  ],
+  "outputNames": [
+   "logits"
+  ],
+  "classes": [
+   "apple",
+   "cherry",
+   "chestnut",
+   "maple"
+  ],
+  "inputSize": 96,
+  "mean": [
+   0.485,
+   0.456,
+   0.406
+  ],
+  "std": [
+   0.229,
+   0.224,
+   0.225
+  ],
+  "expected": {
+   "apple": 0.983352780342102,
+   "cherry": 0.01662766933441162,
+   "chestnut": 4.257486580172554e-06,
+   "maple": 1.5401732525788248e-05
+  },
+  "imageSize": [
+   96,
+   96
+  ],
+  "tensorShape": [
+   1,
+   3,
+   96,
+   96
+  ],
+  "logits": [
+   5.549383640289307,
+   1.4694074392318726,
+   -6.800716400146484,
+   -5.5149102210998535
+  ],
+  "probabilities": [
+   0.9833539234048212,
+   0.0166264183708874,
+   4.257253942743464e-06,
+   1.540097034877487e-05
+  ],
+  "probabilitySum": 1,
+  "compare": [
+   {
+    "class": "apple",
+    "got": 0.9833539234048212,
+    "expected": 0.983352780342102,
+    "gotRounded": "0.983",
+    "expectedRounded": "0.983",
+    "absDiff": 1.1430627191444387e-06
+   },
+   {
+    "class": "cherry",
+    "got": 0.0166264183708874,
+    "expected": 0.01662766933441162,
+    "gotRounded": "0.017",
+    "expectedRounded": "0.017",
+    "absDiff": 1.2509635242199946e-06
+   },
+   {
+    "class": "chestnut",
+    "got": 4.257253942743464e-06,
+    "expected": 4.257486580172554e-06,
+    "gotRounded": "0.000",
+    "expectedRounded": "0.000",
+    "absDiff": 2.3263742908924195e-10
+   },
+   {
+    "class": "maple",
+    "got": 1.540097034877487e-05,
+    "expected": 1.5401732525788248e-05,
+    "gotRounded": "0.000",
+    "expectedRounded": "0.000",
+    "absDiff": 7.621770133767387e-10
+   }
+  ],
+  "maxAbsDiff": 1.2509635242199946e-06,
+  "pass": true
+ },
+ "upload": {
+  "top": "apple \u2014 98.3%",
+  "bars": [
+   [
+    "apple",
+    "98.3%"
+   ],
+   [
+    "cherry",
+    "1.7%"
+   ],
+   [
+    "chestnut",
+    "0.0%"
+   ],
+   [
+    "maple",
+    "0.0%"
+   ]
+  ],
+  "perfHint": "Last inference: 39 ms on this device."
+ },
+ "centre_crop_probe": {
+  "logits": [
+   5.549383640289307,
+   1.4694074392318726,
+   -6.800716400146484,
+   -5.5149102210998535
+  ],
+  "probabilities": [
+   0.9833539234048212,
+   0.0166264183708874,
+   4.257253942743464e-06,
+   1.540097034877487e-05
+  ],
+  "tensorShape": [
+   1,
+   3,
+   96,
+   96
+  ]
+ },
+ "colour_probes": [
+  {
+   "probe": "colour_probe_1.png",
+   "browser": [
+    0.15273897884886248,
+    0.6289698375244582,
+    0.20168557886833946,
+    0.016605604758339755
+   ],
+   "onnx": {
+    "apple": 0.15273937582969666,
+    "cherry": 0.6289706230163574,
+    "chestnut": 0.20168443024158478,
+    "maple": 0.016605570912361145
+   },
+   "maxAbsDiff": 1.1486267546823026e-06
+  },
+  {
+   "probe": "colour_probe_2.png",
+   "browser": [
+    0.17048424370786044,
+    0.791406519117912,
+    0.02717095774205139,
+    0.010938279432176118
+   ],
+   "onnx": {
+    "apple": 0.17048345506191254,
+    "cherry": 0.791408360004425,
+    "chestnut": 0.02717011608183384,
+    "maple": 0.010938091203570366
+   },
+   "maxAbsDiff": 1.8408865130048468e-06
+  },
+  {
+   "probe": "colour_probe_3.png",
+   "browser": [
+    0.11239627700504819,
+    0.46821724788170405,
+    0.3785434458651974,
+    0.04084302924805034
+   ],
+   "onnx": {
+    "apple": 0.11239640414714813,
+    "cherry": 0.46820929646492004,
+    "chestnut": 0.37855082750320435,
+    "maple": 0.04084349051117897
+   },
+   "maxAbsDiff": 7.951416784002241e-06
+  }
+ ],
+ "qr": {
+  "decoded": [
+   "https://adamb4b.github.io/mlr-ex08/"
+  ],
+  "screenshot": "C:\\Users\\adamb\\OneDrive\\V\u00fd\u0161ka\\Ing\\Semester 1\\MLR\\Cvicenia\\08\\tests\\evidence\\qr-webkit-local.png",
+  "linkHref": "https://adamb4b.github.io/mlr-ex08/",
+  "linkText": "https://adamb4b.github.io/mlr-ex08/"
+ },
+ "localObjectUrls": [
+  "blob:http://127.0.0.1:52728/80dedb98-76f6-4467-8473-fe05fa885d58"
+ ],
+ "finished": "2026-11-13 09:55:37",
+ "failed": []
+}

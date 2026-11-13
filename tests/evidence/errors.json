@@ -1,0 +1,56 @@
+{
+ "started": "2026-11-13 09:07:37",
+ "checks": [
+  {
+   "check": "a missing model is reported, not hidden",
+   "pass": true,
+   "detail": "Could not load ./leaf_model.onnx (HTTP 404). If you opened this file directly, serve the folder over HTTP instead \u2014 see README.md."
+  },
+  {
+   "check": "the status says the model failed",
+   "pass": true,
+   "detail": "Model failed to load."
+  },
+  {
+   "check": "no probabilities are shown without a model",
+   "pass": true,
+   "detail": [
+    "\u2014",
+    "\u2014",
+    "\u2014",
+    "\u2014"
+   ]
+  },
+  {
+   "check": "a refused camera is explained",
+   "pass": true,
+   "detail": "Camera permission was denied. Tap the lock / camera icon in the address bar, allow the camera for this site, then try again. You can still use \u201cUpload image\u201d."
+  },
+  {
+   "check": "the message offers the upload instead",
+   "pass": true,
+   "detail": "Camera permission was denied.\nTap the lock / camera icon in the address bar, allow the camera for this site, then try again. You can still use \u201cUpload image\u201d."
+  },
+  {
+   "check": "the model still works after the camera error",
+   "pass": true,
+   "detail": "Model ready."
+  },
+  {
+   "check": "upload still classifies after the camera error",
+   "pass": true,
+   "detail": "apple \u2014 98.3%"
+  }
+ ],
+ "model404": {
+  "error": "Could not load ./leaf_model.onnx (HTTP 404). If you opened this file directly, serve the folder over HTTP instead \u2014 see README.md.",
+  "status": "Model failed to load.",
+  "barCount": 4
+ },
+ "cameraDenied": {
+  "error": "Camera permission was denied.\nTap the lock / camera icon in the address bar, allow the camera for this site, then try again. You can still use \u201cUpload image\u201d."
+ },
+ "afterCameraError": {
+  "top": "apple \u2014 98.3%"
+ }
+}
